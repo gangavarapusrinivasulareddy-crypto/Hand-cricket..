@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Hand Cricket — Animated</title>
+<style>
+  :root{
+    --bg1:#0f1724; --bg2:#0b3b2e;
+    --card:#0f1724;
+    --accent: #f6b042;
+    --muted:#cbd5e1;
+    --good:#38a169;
+    --bad:#e53e3e;
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    font-family:Inter, system-ui, Arial, sans-serif;
+    background: radial-gradient(1200px 800px at 10% 10%, #122236 0%, #071017 30%, #041219 100%), linear-gradient(135deg,#052a2a 0%, #082a4b 100%);
+    color: #eef2f7;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
+
+  /* Top scoreboard */
+  .top {
+    max-width:900px;
+    margin:18px auto;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:14px;
+    border-radius:12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    box-shadow: 0 6px 18px rgba(2,6,23,0.6);
+  }
+  .scorecard { display:flex; gap:18px; align-items:center; }
+  .stat {
+    background: rgba(255,255,255,0.03);
+    padding:10px 14px;
+    border-radius:10px;
+    min-width:120px;
+    text-align:left;
+  }
+  .stat h3{ margin:0; font-size:12px; color:var(--muted); font-weight:600; letter-spacing:0.6px; }
+  .stat p{ margin:4px 0 0; font-size:18px; font-weight:700; color:#fff; transition:all .35s ease; }
+
+  /* Center playing area */
+  .arena {
+    max-width:900px;
+    margin: 22px auto;
+    display:flex;
+    gap:18px;
+    align-items:flex-start;
+    padding:18px;
+  }
+
+  /* hands area */
+  .hands {
+    flex:1.2;
+    position:relative;
+    min-height:360px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00));
+    border-radius:14px;
+    padding:18px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+  .pitch {
+    width:100%;
+    max-width:600px;
+    height:320px;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .stumps { position:absolute; top:70px; width:60px; height:120px; background: linear-gradient(#7b5b3a, #5a3f27); border-radius:6px; box-shadow: 0 8px 18px rgba(0,0,0,0.6); z-index:2; }
+  .hand-row { position:absolute; width:100%; display:flex; justify-content:space-between; padding: 0 40px; top:20px; pointer-events:none; }
+  .hand {
+    width:170px; height:170px; background:linear-gradient(180deg,#0f2b25,#083b3a); border-radius:16px; display:flex; align-items:center; justify-content:center; transform-origin:center bottom;
+    box-shadow: 0 12px 28px rgba(2,6,23,0.6);
+  }
+  /* simple SVG palm */
+  .hand svg { width:110px; height:110px; opacity:0.95; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.6)); }
+  .hand.left { transform: translateY(6px) rotate(-8deg); }
+  .hand.right { transform: translateY(6px) rotate(8deg); }
+  .hand.animate { animation:handSwing .55s ease both; }
+  @keyframes handSwing {
+    0%{ transform: translateY(6px) scale(0.98) }
+    40%{ transform: translateY(-22px) scale(1.02) }
+    100%{ transform: translateY(6px) scale(1) }
+  }
+
+  /* bottom controls */
+  .controls {
+    flex:0.8;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    padding:12px;
+  }
+  .info {
+    background: rgba(255,255,255,0.02);
+    padding:12px;
+    border-radius:10px;
+    text-align:left;
+  }
+  .info h4{ margin:0; font-size:14px; color:var(--muted) }
+  .info p{ margin:8px 0 0; font-size:13px; color:#dbeafe; }
+
+  .grid {
+    display:grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap:10px;
+    margin-top:12px;
+  }
+
+  .numbtn {
+    background: linear-gradient(180deg,#fffbf5,#fff7ed);
+    color:#111827;
+    border-radius:12px;
+    padding:16px 6px;
+    font-size:20px;
+    font-weight:700;
+    border: none;
+    cursor:pointer;
+    box-shadow: 0 8px 18px rgba(3,7,18,0.45);
+    transition: transform .13s ease, box-shadow .13s ease;
+  }
+  .numbtn:active { transform: translateY(4px) scale(0.98); box-shadow: 0 4px 12px rgba(3,7,18,0.35); }
+  .numbtn.disabled { opacity:0.45; pointer-events:none; }
+
+  .btn-row { display:flex; gap:10px; margin-top:12px; }
+
+  .bigbtn {
+    background:var(--accent);
+    color:#081014;
+    border:none; padding:10px 12px; border-radius:10px; cursor:pointer; font-weight:800;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+  }
+
+  /* result popup */
+  .popup {
+    position:fixed; left:50%; top:18px; transform:translateX(-50%); background:linear-gradient(180deg,#062428,#0b3b2e);
+    border-radius:12px; padding:12px 18px; box-shadow: 0 12px 30px rgba(0,0,0,0.6); z-index:60;
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+
+  /* animation for the ball number */
+  .ball-num {
+    position:absolute; left:50%; top:150px; transform:translate(-50%,-50%); z-index:20;
+    width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background: radial-gradient(circle at 30% 30%, #fff, #f3d6b3);
+    color:#0b1b1a; font-weight:800; font-size:20px;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.5);
+    transform-origin:center center;
+  }
+  .pop { animation: popBall .55s cubic-bezier(.2,.9,.3,1) both; }
+  @keyframes popBall {
+    0% { transform: translate(-50%,-50%) scale(.2); opacity:0 }
+    60% { transform: translate(-50%,-120%) scale(1.08); opacity:1 }
+    100% { transform: translate(-50%,-50%) scale(1); opacity:1 }
+  }
+
+  /* small helpers */
+  .muted{ color:var(--muted); font-size:13px; }
+  .center{ text-align:center; }
+
+  /* responsive */
+  @media (max-width:880px){
+    .arena{ flex-direction:column; padding:12px }
+    .top{ margin:12px; }
+    .grid{ grid-template-columns: repeat(5, 1fr); }
+    .hand{ width:120px; height:120px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Top scoreboard -->
+<div class="top">
+  <div class="scorecard">
+    <div class="stat"><h3>Runs</h3><p id="runs">0</p></div>
+    <div class="stat"><h3>Balls Remaining</h3><p id="balls">12</p></div>
+    <div class="stat"><h3>Overs</h3><p id="overs">0.0</p></div>
+  </div>
+  <div class="stat" style="min-width:220px">
+    <h3>Innings</h3>
+    <p id="inningLabel">Tossing...</p>
+    <div class="muted" id="tossText" style="margin-top:6px"></div>
+  </div>
+  <div class="stat" style="min-width:180px">
+    <h3>Target</h3><p id="target">-</p>
+  </div>
+</div>
+
+<!-- Arena & controls -->
+<div class="arena">
+  <div class="hands">
+    <div class="hand-row">
+      <div class="hand left" id="playerHand" title="You">
+        <!-- simple hand svg (placeholder) -->
+        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+          <g fill="#ffdca8" stroke="#e0b688" stroke-width="1">
+            <rect x="26" y="4" width="6" height="18" rx="3"/>
+            <rect x="18" y="8" width="6" height="18" rx="3"/>
+            <rect x="34" y="10" width="6" height="18" rx="3"/>
+            <rect x="42" y="16" width="6" height="18" rx="3"/>
+            <rect x="18" y="30" width="34" height="24" rx="6"/>
+          </g>
+        </svg>
+      </div>
+
+      <div class="hand right" id="compHand" title="Computer">
+        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+          <g fill="#dbeafe" stroke="#9fc3ff" stroke-width="1">
+            <rect x="26" y="4" width="6" height="18" rx="3"/>
+            <rect x="18" y="8" width="6" height="18" rx="3"/>
+            <rect x="34" y="10" width="6" height="18" rx="3"/>
+            <rect x="42" y="16" width="6" height="18" rx="3"/>
+            <rect x="18" y="30" width="34" height="24" rx="6"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <div class="pitch">
+      <div class="stumps"></div>
+      <div id="ballNum" class="ball-num" style="display:none">5</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="info">
+      <h4 id="phaseTitle">Toss: Choose Odd/Even</h4>
+      <p id="phaseText">Game will start after toss.</p>
+    </div>
+
+    <!-- interactive area -->
+    <div id="interactive" class="center" style="margin-top:8px;">
+      <!-- Toss controls will be injected here -->
+    </div>
+
+    <div style="height:6px"></div>
+
+    <div class="grid" id="numGrid" style="display:none; margin-top:8px;">
+      <!-- number buttons 1..10 will be created by JS -->
+    </div>
+
+    <div class="btn-row center" style="margin-top:6px;">
+      <button class="bigbtn" id="restartAll" style="display:none">Restart Match</button>
+    </div>
+  </div>
+</div>
+
+<!-- popup -->
+<div id="popup" style="display:none" class="popup center"></div>
+
+<script>
+/* Game logic with animations */
+const handSigns = {
+  1: "Index up (all others down)",
+  2: "Index + Middle up (others down)",
+  3: "Index + Middle + Ring up (others down)",
+  4: "Index + Middle + Ring + Little up (Thumb down)",
+  5: "All fingers up (Thumb, Index, Middle, Ring, Little)",
+  6: "Thumb up (others down)",
+  7: "Thumb + Index up (others down)",
+  8: "Thumb + Index + Middle up (others down)",
+  9: "Thumb + Middle + Ring + Little up (Index down)",
+  10: "Index + Little up (others down)"
+};
+
+let state = {
+  phase: 'toss', // toss -> tossPick -> tossResult -> play1 -> inningsBreak -> play2 -> finished
+  playerOddEven: null,
+  computerOddEven: null,
+  playerTossNum: null,
+  computerTossNum: null,
+  tossWinner: null,
+  tossWinnerRole: null, // bat or ball chosen by toss winner
+  innings: 1,
+  playerScore: 0,
+  compScore: 0,
+  ballsPerInnings: 12,
+  ballsLeft: 12,
+  target: null,
+  isPlayerBatting: null, // during active innings
+};
+
+const interactive = document.getElementById('interactive');
+const phaseTitle = document.getElementById('phaseTitle');
+const phaseText = document.getElementById('phaseText');
+const numGrid = document.getElementById('numGrid');
+const popup = document.getElementById('popup');
+
+const runsEl = document.getElementById('runs');
+const ballsEl = document.getElementById('balls');
+const oversEl = document.getElementById('overs');
+const inningLabel = document.getElementById('inningLabel');
+const tossText = document.getElementById('tossText');
+const targetEl = document.getElementById('target');
+
+const playerHand = document.getElementById('playerHand');
+const compHand = document.getElementById('compHand');
+const ballNumEl = document.getElementById('ballNum');
+
+const restartAll = document.getElementById('restartAll');
+
+restartAll.addEventListener('click', () => location.reload());
+
+/* helper UI functions */
+function showPopup(text, timeout=2000){
+  popup.style.display='block';
+  popup.innerText=text;
+  setTimeout(()=> popup.style.display='none', timeout);
+}
+function animateHands(){
+  playerHand.classList.remove('animate');
+  compHand.classList.remove('animate');
+  void playerHand.offsetWidth;
+  playerHand.classList.add('animate');
+  compHand.classList.add('animate');
+}
+function showBallNumber(n){
+  ballNumEl.style.display='flex';
+  ballNumEl.textContent = n;
+  ballNumEl.classList.remove('pop');
+  void ballNumEl.offsetWidth;
+  ballNumEl.classList.add('pop');
+  setTimeout(()=>{ ballNumEl.classList.remove('pop'); }, 650);
+}
+
+/* scoreboard update */
+function updateScoreboard(){
+  let runs = state.isPlayerBatting ? state.playerScore : state.compScore;
+  // but overall show total of current batting side
+  if (state.innings === 1){
+    runs = state.isPlayerBatting ? state.playerScore : state.compScore;
+  } else {
+    runs = state.isPlayerBatting ? state.playerScore : state.compScore;
+  }
+  // show runs as the current batting side runs during play; after innings break show final
+  runsEl.innerText = state.isPlayerBatting ? state.playerScore : state.compScore;
+  ballsEl.innerText = state.ballsLeft;
+  const oversBowled = (state.ballsPerInnings - state.ballsLeft);
+  const oversText = Math.floor(oversBowled/6) + '.' + (oversBowled%6);
+  oversEl.innerText = oversText;
+  inningLabel.innerText = `Innings ${state.innings} — ${state.isPlayerBatting ? 'Player batting' : 'Computer batting'}`;
+  tossText.innerText = `Toss: ${state.tossWinner ? (state.tossWinner === 'player' ? 'You' : 'Computer') + ' won' : '—' }`;
+  targetEl.innerText = state.target === null ? '-' : state.target;
+}
+
+/* create number buttons 1..10 */
+function createNumberButtons(){
+  numGrid.innerHTML='';
+  for (let i=1;i<=10;i++){
+    const b = document.createElement('button');
+    b.className='numbtn';
+    b.innerHTML = `<div style="font-size:13px;opacity:.8">(${handSigns[i]})</div><div style="font-size:22px">${i}</div>`;
+    b.onclick = ()=> playerPick(i);
+    numGrid.appendChild(b);
+  }
+}
+
+/* --- Toss flow --- */
+function startToss(){
+  state.phase='toss';
+  phaseTitle.innerText='Toss: Choose Odd or Even';
+  phaseText.innerText='Pick Odd or Even. Then both pick a number 1–10. Sum decides toss winner.';
+  interactive.innerHTML = `
+    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+      <button class="bigbtn" id="oddBtn">Odd</button>
+      <button class="bigbtn" id="evenBtn">Even</button>
+    </div>
+  `;
+  document.getElementById('oddBtn').onclick = ()=> chooseOddEven('odd');
+  document.getElementById('evenBtn').onclick = ()=> chooseOddEven('even');
+  numGrid.style.display='none';
+  updateScoreboard();
+}
+
+/* player chooses odd/even */
+function chooseOddEven(choice){
+  state.playerOddEven = choice;
+  state.computerOddEven = (choice === 'odd') ? 'even' : 'odd';
+  phaseTitle.innerText = `Toss pick done — you chose ${choice.toUpperCase()}`;
+  phaseText.innerText = `Now pick a number (1–10) for toss. Computer will pick a random number.`;
+  interactive.innerHTML = `<div class="muted">Choose your toss-number:</div>`;
+  createTossNumberButtons();
+}
+
+/* create toss number buttons */
+function createTossNumberButtons(){
+  const container = document.createElement('div');
+  container.className = 'grid';
+  for (let i=1;i<=10;i++){
+    const b = document.createElement('button');
+    b.className='numbtn';
+    b.innerHTML = `${i}`;
+    b.onclick = ()=> playTossNumber(i);
+    container.appendChild(b);
+  }
+  interactive.appendChild(container);
+}
+
+/* run toss number picks */
+function playTossNumber(n){
+  state.playerTossNum = n;
+  state.computerTossNum = Math.floor(Math.random()*10)+1;
+  const total = state.playerTossNum + state.computerTossNum;
+  const parity = (total%2===0) ? 'even' : 'odd';
+  const winner = (parity === state.playerOddEven) ? 'player' : 'computer';
+  state.tossWinner = winner;
+
+  phaseTitle.innerText = 'Toss — Result';
+  phaseText.innerText = `You: ${state.playerTossNum} — Computer: ${state.computerTossNum} → Total ${total} (${parity}) → ${winner==='player' ? 'You won' : 'Computer won'} the toss.`;
+
+  interactive.innerHTML = '';
+  showPopup(`Toss: ${state.playerTossNum} + ${state.computerTossNum} = ${total} (${parity})`, 2200);
+  animateHands();
+  showBallNumber(total);
+
+  setTimeout(()=> {
+    if (state.tossWinner === 'player'){
+      // Ask player to choose bat/ball
+      askPlayerToChooseRole();
+    } else {
+      // Computer chooses randomly
+      const compChoice = (Math.random() < 0.5) ? 'bat' : 'ball';
+      state.tossWinnerRole = compChoice;
+      // If computer chooses bat, player will ball first (player is ball)
+      state.isPlayerBatting = (compChoice === 'ball'); // if comp chose ball, player bats
+      phaseText.innerText += ` — Computer chooses to ${compChoice}.`;
+      prepareFirstInnings();
+    }
+  }, 1200);
+}
+
+function askPlayerToChooseRole(){
+  interactive.innerHTML = `
+    <div style="margin-top:8px;">
+      <div class="muted">You won the toss — choose to Bat or Bowl:</div>
+      <div style="margin-top:8px; display:flex; gap:10px; justify-content:center">
+        <button class="bigbtn" id="batBtn">Bat</button>
+        <button class="bigbtn" id="bowlBtn">Bowl</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('batBtn').onclick = ()=> { state.tossWinnerRole='bat'; state.isPlayerBatting = true; prepareFirstInnings(); };
+  document.getElementById('bowlBtn').onclick = ()=> { state.tossWinnerRole='ball'; state.isPlayerBatting = false; prepareFirstInnings(); };
+}
+
+/* Prepare first innings */
+function prepareFirstInnings(){
+  state.phase = 'play1';
+  state.innings = 1;
+  state.ballsLeft = state.ballsPerInnings;
+  state.playerScore = 0;
+  state.compScore = 0;
+  state.target = null;
+  phaseTitle.innerText = 'Match start';
+  phaseText.innerText = `Innings ${state.innings}: ${state.isPlayerBatting ? 'You bat first' : 'Computer bats first'}`;
+  interactive.innerHTML = `<div class="muted">Use the buttons to pick numbers. If both choose same — OUT.</div>`;
+  numGrid.style.display='grid';
+  createNumberButtons();
+  updateScoreboard();
+}
+
+/* Player picks during active innings */
+function playerPick(num){
+  if (state.phase !== 'play1' && state.phase !== 'play2') return;
+  // if player is NOT batting, the player is bowling -> his choice is bowler; the computer bats and picks number as batsman
+  if (state.isPlayerBatting){
+    // Player batting, computer bowls (random)
+    const playerChoice = num;
+    const compChoice = Math.floor(Math.random()*10)+1;
+    resolveRun(playerChoice, compChoice, true);
+  } else {
+    // Player bowling, computer batting
+    const playerChoice = num; // bowler choice
+    const compChoice = Math.floor(Math.random()*10)+1; // batsman
+    resolveRun(compChoice, playerChoice, false); // resolveRun(batsmanChoice, bowlerChoice, isPlayerBatting)
+  }
+}
+
+/* resolve a single ball */
+function resolveRun(batsmanChoice, bowlerChoice, battingIsPlayer){
+  animateHands();
+  showBallNumber(batsmanChoice);
+  // show hands labels
+  // simulate a short delay to show numbers and animate
+  setTimeout(()=> {
+    // if equal -> out
+    if (batsmanChoice === bowlerChoice){
+      // wicket
+      if (battingIsPlayer){
+        state.playerScore += 0; // no runs
+      } else {
+        state.compScore += 0;
+      }
+      state.ballsLeft--;
+      updateScoreboard();
+      showPopup('WICKET! OUT!', 1400);
+      // end innings on wicket or continue? We'll say innings continues until balls finish or out (like single wicket)
+      // based on your earlier simple rules: out ends innings immediately
+      endInnings();
+    } else {
+      // add runs to batting side equal to batsman's number
+      if (battingIsPlayer){
+        state.playerScore += batsmanChoice;
+        showPopup(`+${batsmanChoice} runs`, 1200);
+      } else {
+        state.compScore += batsmanChoice;
+        showPopup(`Computer +${batsmanChoice} runs`, 1200);
+      }
+      state.ballsLeft--;
+      updateScoreboard();
+      // check balls left
+      if (state.ballsLeft <= 0){
+        endInnings();
+      } else {
+        // continue
+      }
+    }
+    // update visible hand text (small)
+    // show both numbers briefly below hands
+    const prevLeft = playerHand.querySelector('.numoverlay');
+    if (prevLeft) prevLeft.remove();
+    const left = document.createElement('div');
+    left.className='numoverlay muted';
+    left.style.position='absolute';
+    left.style.top='60px';
+    left.style.left='32px';
+    left.style.fontSize='12px';
+    left.style.background='rgba(0,0,0,0.25)';
+    left.style.padding='6px 8px';
+    left.style.borderRadius='8px';
+    left.style.pointerEvents='none';
+    left.innerText = battingIsPlayer ? `Bat:${batsmanChoice}` : `Ball:${bowlerChoice}`;
+    playerHand.appendChild(left);
+
+    const prevRight = compHand.querySelector('.numoverlay');
+    if (prevRight) prevRight.remove();
+    const right = document.createElement('div');
+    right.className='numoverlay muted';
+    right.style.position='absolute';
+    right.style.top='60px';
+    right.style.right='32px';
+    right.style.fontSize='12px';
+    right.style.background='rgba(0,0,0,0.25)';
+    right.style.padding='6px 8px';
+    right.style.borderRadius='8px';
+    right.style.pointerEvents='none';
+    right.innerText = battingIsPlayer ? `Ball:${bowlerChoice}` : `Bat:${batsmanChoice}`;
+    compHand.appendChild(right);
+
+  }, 200);
+}
+
+/* End an innings */
+function endInnings(){
+  // If we are in innings 1 => set target if player batted first, or set target if comp batted first
+  if (state.innings === 1){
+    if (state.isPlayerBatting){
+      state.target = state.playerScore + 1;
+      state.isPlayerBatting = false; // computer bats next
+    } else {
+      state.target = state.compScore + 1;
+      state.isPlayerBatting = true; // player bats next
+    }
+    state.innings = 2;
+    // reset balls
+    state.ballsLeft = state.ballsPerInnings;
+    updateScoreboard();
+    phaseTitle.innerText = 'Innings Break';
+    phaseText.innerText = `Target set: ${state.target}. Now ${state.isPlayerBatting ? 'You' : 'Computer'} will bat to chase.`;
+    numGrid.style.display = 'grid';
+    // small delay then start second innings
+    setTimeout(()=> {
+      state.phase='play2';
+      phaseTitle.innerText = 'Second Innings';
+      phaseText.innerText = `Innings ${state.innings}: ${state.isPlayerBatting ? 'You batting' : 'Computer batting'}`;
+      updateScoreboard();
+    }, 1400);
+  } else {
+    // innings 2 finished -> decide result
+    state.phase='finished';
+    numGrid.style.display='none';
+    determineWinner();
+  }
+}
+
+/* determine winner after both innings or chase */
+function determineWinner(){
+  // compare scores
+  let playerFinal = state.playerScore;
+  let compFinal = state.compScore;
+  // show final scoreboard
+  updateScoreboard();
+  let msg='';
+  if (playerFinal > compFinal){
+    msg = `You Win! (${playerFinal} - ${compFinal})`;
+  } else if (playerFinal < compFinal){
+    msg = `You Lose. (${playerFinal} - ${compFinal})`;
+  } else {
+    msg = `Tie! (${playerFinal} - ${compFinal})`;
+  }
+  phaseTitle.innerText = 'Match Finished';
+  phaseText.innerText = msg;
+  showPopup(msg, 5000);
+  restartAll.style.display = 'inline-block';
+  // final overlay
+  setTimeout(()=> {
+    interactive.innerHTML = `<div class="muted">Match finished. ${msg}</div>`;
+  }, 400);
+}
+
+/* --- initialize --- */
+function createNumberButtons(){
+  numGrid.innerHTML='';
+  for (let i=1;i<=10;i++){
+    const b = document.createElement('button');
+    b.className='numbtn';
+    b.innerHTML = `<div style="font-size:12px;opacity:.85">${handSigns[i]}</div><div style="font-size:20px">${i}</div>`;
+    b.onclick = ()=> playerPick(i);
+    numGrid.appendChild(b);
+  }
+}
+
+startToss();
+updateScoreboard();
+
+</script>
+</body>
+</html>
